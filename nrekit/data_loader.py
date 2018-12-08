@@ -280,7 +280,7 @@ class json_file_data_loader(file_data_loader):
             self.data_word = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)
             self.data_pos1 = np.zeros((self.instance_tot, self.max_length), dtype=np.int32) 
             self.data_pos2 = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)
-            self.data_rel = np.zeros((self.instance_tot), dtype=np.int32)
+            self.data_rel = np.zeros((self.instance_tot), dtype=np.int32)#relation
             self.data_mask = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)
             self.data_length = np.zeros((self.instance_tot), dtype=np.int32)
             last_entpair = ''
@@ -300,7 +300,7 @@ class json_file_data_loader(file_data_loader):
                 cur_relfact = ins['head']['id'] + '#' + ins['tail']['id'] + '#' + ins['relation']
                 if cur_entpair != last_entpair:
                     if last_entpair != '':
-                        self.entpair2scope[last_entpair] = [last_entpair_pos, i] # left closed right open
+                        self.entpair2scope[last_entpair] = [last_entpair_pos, i] # left closed right open[ ）
                     last_entpair = cur_entpair
                     last_entpair_pos = i
                 if cur_relfact != last_relfact:
@@ -308,9 +308,9 @@ class json_file_data_loader(file_data_loader):
                         self.relfact2scope[last_relfact] = [last_relfact_pos, i]
                     last_relfact = cur_relfact
                     last_relfact_pos = i
-                p1 = sentence.find(' ' + head + ' ')
+                p1 = sentence.find(' ' + head + ' ')#当entity在句子中间的时候，返回句子的字符级别索引
                 p2 = sentence.find(' ' + tail + ' ')
-                if p1 == -1:
+                if p1 == -1:#如果上面两个没找到则应该在句子首位
                     if sentence[:len(head) + 1] == head + " ":
                         p1 = 0
                     elif sentence[-len(head) - 1:] == " " + head:
