@@ -28,7 +28,7 @@ def main():
     plt.title('Precision-Recall')
     plt.legend(loc="upper right")
     plt.grid(True)
-    plt.savefig(os.path.join(result_dir, 'pr_curve'))
+    plt.savefig(os.path.join(result_dir, models[0]+'pr_curve'))
 
 if __name__ == "__main__":
     main()
