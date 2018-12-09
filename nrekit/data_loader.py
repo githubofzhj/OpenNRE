@@ -255,9 +255,9 @@ class json_file_data_loader(file_data_loader):
        
             # Pre-process word vec
             self.word2id = {}
-            self.word_vec_tot = len(self.ori_word_vec)
-            UNK = self.word_vec_tot
-            BLANK = self.word_vec_tot + 1
+            self.word_vec_tot = len(self.ori_word_vec)#有vector表示的单子总数
+            UNK = self.word_vec_tot#不在wod2vec的word embedding里的单词UNK表示
+            BLANK = self.word_vec_tot + 1#用于句子补齐到max_length
             self.word_vec_dim = len(self.ori_word_vec[0]['vec'])
             print("Got {} words of {} dims".format(self.word_vec_tot, self.word_vec_dim))
             print("Building word vector matrix and mapping...")
@@ -275,13 +275,13 @@ class json_file_data_loader(file_data_loader):
             # Pre-process data
             print("Pre-processing data...")
             self.instance_tot = len(self.ori_data)
-            self.entpair2scope = {} # (head, tail) -> scope
-            self.relfact2scope = {} # (head, tail, relation) -> scope
-            self.data_word = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)
-            self.data_pos1 = np.zeros((self.instance_tot, self.max_length), dtype=np.int32) 
+            self.entpair2scope = {} # (head, tail) -> scope 左开右闭，相同两个实体包含的句子
+            self.relfact2scope = {} # (head, tail, relation) -> scope 左开右闭，相同两个实体+关系包含的句子
+            self.data_word = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)#保存每句话的每个word 的id，补齐到最大长度
+            self.data_pos1 = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)#每个词距离e1的距离 j - pos1 + max_length
             self.data_pos2 = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)
             self.data_rel = np.zeros((self.instance_tot), dtype=np.int32)#relation
-            self.data_mask = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)
+            self.data_mask = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)#掩码mask[1,2,3,0]以[e1，e2和max length]划分
             self.data_length = np.zeros((self.instance_tot), dtype=np.int32)
             last_entpair = ''
             last_entpair_pos = -1
@@ -332,10 +332,10 @@ class json_file_data_loader(file_data_loader):
                 #     raise Exception("[ERROR] Sentence doesn't contain the entity, index = {}, sentence = {}, head = {}, tail = {}".format(i, sentence, head, tail))
 
                 words = sentence.split()
-                cur_ref_data_word = self.data_word[i]         
-                cur_pos = 0
-                pos1 = -1
-                pos2 = -1
+                cur_ref_data_word = self.data_word[i]#这里是浅拷贝，故而后面对cur_ref_data_word的赋值会保存在 self.data_word[i]里面
+                cur_pos = 0#当前句子的bit下标
+                pos1 = -1#entity1在第几个单词
+                pos2 = -1#entity2在第几个单词
                 for j, word in enumerate(words):
                     if j < max_length:
                         if word in self.word2id:
@@ -349,20 +349,20 @@ class json_file_data_loader(file_data_loader):
                         pos2 = j
                         p2 = -1
                     cur_pos += len(word) + 1
-                for j in range(j + 1, max_length):
+                for j in range(j + 1, max_length):#补齐到max_length
                     cur_ref_data_word[j] = BLANK
-                self.data_length[i] = len(words)
+                self.data_length[i] = len(words)#每一句话的实际长度，超过max_length则只保存max_length
                 if len(words) > max_length:
                     self.data_length[i] = max_length
                 if pos1 == -1 or pos2 == -1:
                     raise Exception("[ERROR] Position error, index = {}, sentence = {}, head = {}, tail = {}".format(i, sentence, head, tail))
-                if pos1 >= max_length:
+                if pos1 >= max_length:#如果实体在max_length后面，则当做是max_length内的最后一个单词
                     pos1 = max_length - 1
                 if pos2 >= max_length:
                     pos2 = max_length - 1
                 pos_min = min(pos1, pos2)
                 pos_max = max(pos1, pos2)
-                for j in range(max_length):
+                for j in range(max_length):#保存：位子信息和位子mask矩阵
                     self.data_pos1[i][j] = j - pos1 + max_length
                     self.data_pos2[i][j] = j - pos2 + max_length
                     if j >= self.data_length[i]:
@@ -373,8 +373,8 @@ class json_file_data_loader(file_data_loader):
                         self.data_mask[i][j] = 2
                     else:
                         self.data_mask[i][j] = 3
-                    
-            if last_entpair != '':
+
+            if last_entpair != '':#循环结束，保存最后一个bag的句子索引
                 self.entpair2scope[last_entpair] = [last_entpair_pos, self.instance_tot] # left closed right open
             if last_relfact != '':
                 self.relfact2scope[last_relfact] = [last_relfact_pos, self.instance_tot]
